@@ -6,6 +6,9 @@
   "description": "A server for running InternalStack apps and tools on your own infrastructure. Connects to the InternalStack cloud for rendering, permissions, and user authentication. Create your free account at https://internalstack.com.",
   "author": "Alex Fong <alex@internalstack.com>",
   "license": "MIT",
+  "engines":{
+    "node": ">=22.0.0"
+  },
   "homepage": "https://github.com/internalstack/server#readme",
   "repository": {
     "type": "git",
