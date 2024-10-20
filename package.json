@@ -1,7 +1,7 @@
 {
   "name": "@internalstack/server",
   "type": "module",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "packageManager": "pnpm@9.9.0",
   "description": "A server for running InternalStack apps and tools on your own infrastructure. Connects to the InternalStack cloud for rendering, permissions, and user authentication. Create your free account at https://internalstack.com.",
   "author": "Alex Fong <alex@internalstack.com>",
