@@ -38,7 +38,7 @@
   "scripts": {
     "build": "unbuild",
     "dev": "unbuild --stub",
-    "release": "bumpp && npm publish",
+    "release": "bumpp && pnpm build && npm publish",
     "start": "esno src/index.ts",
     "typecheck": "tsc --noEmit"
   },
