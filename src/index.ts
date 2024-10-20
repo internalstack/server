@@ -90,7 +90,7 @@ export const internalStack = async (apiKey: string, options?: { verbose?: boolea
     .withBuffer(new ArrayQueue()) // buffer messages when disconnected
     .withBackoff(new ConstantBackoff(1000))
     .build()
-  if (options?.verbose) {
+  if (options?.verbose !== false) {
     ws.addEventListener(WebsocketEvent.reconnect, () => consola.info("Reconnected"))
     ws.addEventListener(WebsocketEvent.retry, () => consola.info("Reconnecting..."))
     ws.addEventListener(WebsocketEvent.error, (_websocket, e) => {
