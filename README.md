@@ -2,6 +2,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Finternalstack%2Fserver.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Finternalstack%2Fserver?ref=badge_shield&issueType=license)
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Finternalstack%2Fserver.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Finternalstack%2Fserver?ref=badge_shield&issueType=security)
+
 InternalStack Server empowers you to build internal applications for your team using only backend TypeScript/JavaScript code. With a declarative API, streamline your development by focusing on business logic instead of things like CORS troubleshooting.
 
 ```typescript
@@ -23,8 +27,6 @@ InternalStack Server is free, open-source software designed to run on-premise.
 For a fast setup, please refer to our [Quickstart Guide](https://internalstack.com/docs/quickstart).
 
 ## 📦 Installation
-
-Choose your preferred package manager:
 
 ```sh
 # Using pnpm
@@ -87,5 +89,5 @@ We take pride in making development breezy and efficient. Contributions and feed
 ## Alternatives
 Looking for a fully self-hostable solution? Maybe check out [Interval](https://github.com/interval/server)!
 
-## Inspiration and Credit
+## Inspiration and credit
 The developer-facing API design was heavily inspired by the landing demos on [Interval](https://interval.com)
