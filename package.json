@@ -1,0 +1,62 @@
+{
+  "name": "@internalstack/server",
+  "type": "module",
+  "version": "0.0.1",
+  "packageManager": "pnpm@9.9.0",
+  "description": "A server for running InternalStack apps and tools on your own infrastructure. Connects to the InternalStack cloud for rendering, permissions, and user authentication. Create your free account at https://internalstack.com.",
+  "author": "Alex Fong <alex@internalstack.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/internalstack/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/internalstack/core.git"
+  },
+  "bugs": "https://github.com/internalstack/core/issues",
+  "keywords": [],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "./dist/*",
+        "./dist/index.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "unbuild",
+    "dev": "unbuild --stub",
+    "release": "bumpp && npm publish",
+    "start": "esno src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "bumpp": "^9.5.2",
+    "esno": "^4.7.0",
+    "pnpm": "^9.9.0",
+    "typescript": "^5.5.4",
+    "unbuild": "^2.0.0"
+  },
+  "dependencies": {
+    "consola": "3.2.3",
+    "destr": "2.0.3",
+    "jwt-decode": "4.0.0",
+    "nanoid": "5.0.7",
+    "ofetch": "1.4.1",
+    "websocket-ts": "2.1.5",
+    "zod": "3.23.8"
+  }
+}
