@@ -611,6 +611,7 @@ export const validators = {
       ),
     totalResultCount: z.number().int().positive(),
     options: z.object({
+      defaultValue: z.array(jsonValueValidator).optional().default([]),
       resultsPerPage: z.number().int().positive().optional().default(100),
       columns: z.array(z.object({
         key: z.string(),
