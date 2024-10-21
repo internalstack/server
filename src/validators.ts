@@ -364,6 +364,7 @@ export const validators = {
       defaultValue: jsonValueValidator.nullable().optional().default(null),
       disabled: z.boolean().optional().default(false),
       help: z.string().optional().default(''),
+      placeholder: z.string().optional().default(''),
       customValidator: z
         .function()
         .args(z.unknown())
