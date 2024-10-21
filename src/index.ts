@@ -365,11 +365,11 @@ export const internalStack = async (apiKey: string, options?: { verbose?: boolea
             }))
           })
         },
-        checkboxes: async (
+        checkboxes: async <T = JsonValue>(
           label: z.input<typeof validators.checkboxes.label>,
           items: z.input<typeof validators.checkboxes.items>,
           options?: z.input<typeof validators.checkboxes.options>,
-        ): Promise<boolean> => {
+        ): Promise<T> => {
           const type = 'checkboxes'
           const validItems = validators[type].items.parse(items)
           const validOptions = validators[type].options.parse(options)
@@ -409,11 +409,11 @@ export const internalStack = async (apiKey: string, options?: { verbose?: boolea
             }))
           })
         },
-        radio: async (
+        radio: async <T = JsonValue>(
           label: z.input<typeof validators.radio.label>,
           items: z.input<typeof validators.radio.items>,
           options?: z.input<typeof validators.radio.options>,
-        ): Promise<boolean> => {
+        ): Promise<T> => {
           const type = 'radio'
           const validItems = validators[type].items.parse(items)
           const validOptions = validators[type].options.parse(options)
@@ -448,11 +448,11 @@ export const internalStack = async (apiKey: string, options?: { verbose?: boolea
             }))
           })
         },
-        select: async (
+        select: async <T = JsonValue>(
           label: z.input<typeof validators.select.label>,
           items: z.input<typeof validators.select.items>,
           options?: z.input<typeof validators.select.options>,
-        ): Promise<boolean> => {
+        ): Promise<T> => {
           const type = 'select'
           const validItems = validators[type].items.parse(items)
           const validOptions = validators[type].options.parse(options)
@@ -486,11 +486,11 @@ export const internalStack = async (apiKey: string, options?: { verbose?: boolea
             }))
           })
         },
-        autocomplete: async (
+        autocomplete: async <T = JsonValue>(
           label: z.input<typeof validators.autocomplete.label>,
           query: z.input<typeof validators.autocomplete.query>,
           options?: z.input<typeof validators.autocomplete.options>,
-        ): Promise<string> => {
+        ): Promise<T> => {
           const type = 'autocomplete'
           const validOptions = validators[type].options.parse(options)
           const parameters = {
@@ -521,11 +521,11 @@ export const internalStack = async (apiKey: string, options?: { verbose?: boolea
             }))
           })
         },
-        address: async (
+        address: async <T = GoogleMapsAutocompleteResultSchema>(
           label: z.input<typeof validators.address.label>,
           googleMapsApiKey: z.input<typeof validators.address.googleMapsApiKey>,
           options?: z.input<typeof validators.address.options>,
-        ): Promise<string> => {
+        ): Promise<T> => {
           const type = 'address'
           const validOptions = validators[type].options.parse(options)
           const parameters = {
@@ -679,11 +679,11 @@ export const internalStack = async (apiKey: string, options?: { verbose?: boolea
             }))
           })
         },
-        table: async (
+        table: async <T = JsonArray>(
           label: z.input<typeof validators.table.label>,
           query: z.input<typeof validators.table.query>,
           options?: z.input<typeof validators.table.options>,
-        ): Promise<string> => {
+        ): Promise<T> => {
           const type = 'table'
           const validOptions = validators[type].options.parse(options)
           validators[type].query.parse(query)
