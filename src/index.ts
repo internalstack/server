@@ -197,6 +197,7 @@ export const internalStack = async (apiKey: string, options?: { verbose?: boolea
           const parameters = {
             type: type,
             label: validators[type].label.parse(label),
+            number: true,
             ...validOptions,
           } as const
           const renderedFieldId = renderFieldInForm(sessionId, parameters)
