@@ -1,9 +1,7 @@
 # InternalStack Server
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Finternalstack%2Fserver.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Finternalstack%2Fserver?ref=badge_shield&issueType=license)
-
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Finternalstack%2Fserver.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Finternalstack%2Fserver?ref=badge_shield&issueType=security)
 
 InternalStack Server empowers you to build internal applications for your team using only backend TypeScript/JavaScript code. With a declarative API, streamline your development by focusing on business logic instead of things like CORS troubleshooting.

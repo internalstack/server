@@ -127,7 +127,6 @@ export const validators = {
         )
           .optional()
           .default(() => (async (input: unknown) => {
-            console.log(input)
             if (typeof input !== 'number') return 'Invalid number'
             return true
           })),
@@ -158,7 +157,6 @@ export const validators = {
         )
           .optional()
           .default(() => (async (input: unknown) => {
-            console.log(input)
             if (typeof input !== 'string') return 'Invalid string'
             if (!input) return 'Required'
             return true
@@ -245,7 +243,6 @@ export const validators = {
         )
           .optional()
           .default(() => (async (input: unknown) => {
-            console.log(input)
             if (typeof input !== 'number') return 'Invalid number'
             return true
           })),
