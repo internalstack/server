@@ -655,7 +655,7 @@ export const internalStack = async (
 							| string
 							| {
 									label: string
-									value: JsonArray
+									value: JsonObject
 							  }
 						>
 					>,
