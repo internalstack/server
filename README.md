@@ -20,7 +20,7 @@ server.statefulSession(async (io, { user }) => {
 });
 ```
 
-InternalStack Server is free, open-source software designed to run on-premise.
+InternalStack Server is free, open-source software designed to run on-premises.
 
 ## 🌟 Quickstart
 
