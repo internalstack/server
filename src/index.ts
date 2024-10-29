@@ -1108,6 +1108,46 @@ export const internalStack = async (
 					}
 					return { updateMessage, destroy }
 				},
+				heading: async (
+					text: string,
+				) => {
+					const type = 'heading'
+					const parameters = {
+						type: type,
+						text,
+					}
+					const renderedFieldId = renderFieldInForm(sessionId, parameters)
+					const destroy = () => {
+						ws.send(
+							JSON.stringify({
+								action: 'destroy',
+								fieldId: renderedFieldId,
+								sessionId,
+							}),
+						)
+					}
+					return { destroy }
+				},
+				paragraph: async (
+					text: string,
+				) => {
+					const type = 'text'
+					const parameters = {
+						type: type,
+						text,
+					}
+					const renderedFieldId = renderFieldInForm(sessionId, parameters)
+					const destroy = () => {
+						ws.send(
+							JSON.stringify({
+								action: 'destroy',
+								fieldId: renderedFieldId,
+								sessionId,
+							}),
+						)
+					}
+					return { destroy }
+				},
 			},
 		}
 	}
