@@ -1131,7 +1131,7 @@ export const internalStack = async (
 				paragraph: async (
 					text: string,
 				) => {
-					const type = 'text'
+					const type = 'paragraph'
 					const parameters = {
 						type: type,
 						text,
