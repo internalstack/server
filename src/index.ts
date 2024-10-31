@@ -99,7 +99,6 @@ export const internalStack = async (
 		async (_websocket, rawMessage) => {
 			const message = safeParse<Message>(rawMessage.data.toString())
 			if (!message) return
-			console.log(message)
 			if (message.action === 'startSession') {
 				eventEmitter.emit('startSession', {
 					sessionId: message.sessionId,
@@ -275,7 +274,7 @@ export const internalStack = async (
 						return true
 					}
 					const renderedFieldId = renderFieldInForm(sessionId, {
-						defaultValue: '',
+						defaultValue: '0',
 						...omit(options, 'customValidator'),
 						type: 'currency',
 						label,
