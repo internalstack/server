@@ -667,6 +667,15 @@ export const internalStack = async (
 						eventEmitter.removeAllListeners(
 							eventId(sessionId, renderedFieldId, 'patch'),
 						)
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				address: async <T = GoogleMapsAutocompleteResultSchema>(
@@ -744,6 +753,16 @@ export const internalStack = async (
 							eventEmitter.removeAllListeners(
 								eventId(sessionId, renderedFieldId, 'patch'),
 							)
+							console.log(isStandalone)
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
 						},
 					)
 					return options?.pick ? options.pick(result) : result as T
@@ -928,32 +947,33 @@ export const internalStack = async (
 					})
 					const renderedFieldId = renderFieldInForm(sessionId, {
 						defaultValue: [],
-						...omit(options, 'customValidator'),
+						...omit(options, ['customValidator', 'resultsToDisplay', 'totalResults', 'resultsPerPage']),
 						type: 'table',
-						filterable: options?.filterable,
+						filterable: options?.filterable || true,
 						label,
+						rows: resultsToDisplay,
+						totalResultCount: totalResults,
+						rowsPerPage: options?.resultsPerPage || 10,
 					})
-					if (options?.filterable) {
-						eventEmitter.on(
-							eventId(sessionId, renderedFieldId, 'patch'),
-							async (data) => {
-								const offset = (data.page - 1) * (options?.resultsPerPage || 10)
-								ws.send(
-									JSON.stringify({
-										patchedState: await query({
-											query: data.query,
-											page: data.page,
-											offset,
-											pageSize: options?.resultsPerPage || 10,
-										}),
-										action: 'patch',
-										fieldId: renderedFieldId,
-										sessionId,
+					eventEmitter.on(
+						eventId(sessionId, renderedFieldId, 'patch'),
+						async (data) => {
+							const offset = (data.page - 1) * (options?.resultsPerPage || 10)
+							ws.send(
+								JSON.stringify({
+									patchedState: await query({
+										query: data.query,
+										page: data.page,
+										offset,
+										pageSize: options?.resultsPerPage || 10,
 									}),
-								)
-							},
-						)
-					}
+									action: 'patch',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						},
+					)
 					const defaultValidator = async (input: unknown) => {
 						if (!Array.isArray(input)) return 'Expected array'
 						if (input.length === 0) return 'Required'
