@@ -193,6 +193,7 @@ export const internalStack = async (
 					},
 				): Promise<string> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '',
 						...omit(options, 'customValidator'),
 						label,
 						type: 'text',
@@ -229,6 +230,7 @@ export const internalStack = async (
 					},
 				): Promise<number> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: 0,
 						...omit(options, 'customValidator'),
 						type: 'number',
 						label,
@@ -273,6 +275,7 @@ export const internalStack = async (
 						return true
 					}
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '',
 						...omit(options, 'customValidator'),
 						type: 'currency',
 						label,
@@ -301,6 +304,7 @@ export const internalStack = async (
 					},
 				): Promise<string> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '',
 						...omit(options, 'customValidator'),
 						type: 'markdown',
 						label,
@@ -332,6 +336,7 @@ export const internalStack = async (
 					},
 				): Promise<string> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '<p></p>',
 						...omit(options, 'customValidator'),
 						type: 'richText',
 						label,
@@ -376,6 +381,7 @@ export const internalStack = async (
 					},
 				): Promise<number> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: 0,
 						...omit(options, 'customValidator'),
 						type: 'slider',
 						label,
@@ -408,6 +414,7 @@ export const internalStack = async (
 					},
 				): Promise<string> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '',
 						...omit(options, 'customValidator'),
 						type: 'email',
 						label,
@@ -439,6 +446,7 @@ export const internalStack = async (
 					},
 				): Promise<boolean> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: false,
 						...omit(options, 'customValidator'),
 						type: 'checkbox',
 						label,
@@ -487,6 +495,7 @@ export const internalStack = async (
 						return box
 					})
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: [],
 						...omit(options, 'customValidator'),
 						type: 'checkbox',
 						label,
@@ -536,6 +545,7 @@ export const internalStack = async (
 						return radio
 					})
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: [],
 						...omit(options, 'customValidator'),
 						type: 'radio',
 						label,
@@ -584,6 +594,7 @@ export const internalStack = async (
 						return select
 					})
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: undefined,
 						...omit(options, 'customValidator'),
 						type: 'select',
 						label,
@@ -628,6 +639,7 @@ export const internalStack = async (
 					},
 				): Promise<T> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '',
 						...omit(options, 'customValidator'),
 						type: 'autocomplete',
 						label,
@@ -672,6 +684,7 @@ export const internalStack = async (
 					},
 				): Promise<T> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '',
 						...omit(options, ['customValidator', 'pick']),
 						type: 'autocomplete',
 						label,
@@ -749,6 +762,7 @@ export const internalStack = async (
 					},
 				): Promise<string> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '',
 						...omit(options, 'customValidator'),
 						type: 'date',
 						label,
@@ -784,6 +798,7 @@ export const internalStack = async (
 					},
 				): Promise<string> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '',
 						...omit(options, 'customValidator'),
 						type: 'datetime-local',
 						label,
@@ -819,6 +834,7 @@ export const internalStack = async (
 					},
 				): Promise<string> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '',
 						...omit(options, 'customValidator'),
 						type: 'time',
 						label,
@@ -856,6 +872,7 @@ export const internalStack = async (
 					},
 				): Promise<string> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: '#ffffff',
 						...omit(options, 'customValidator'),
 						type: 'colorpicker',
 						label,
@@ -911,6 +928,7 @@ export const internalStack = async (
 						pageSize: options?.resultsPerPage || 10,
 					})
 					const renderedFieldId = renderFieldInForm(sessionId, {
+						defaultValue: [],
 						...omit(options, 'customValidator'),
 						type: 'table',
 						filterable: options?.filterable,
