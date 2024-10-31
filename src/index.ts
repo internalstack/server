@@ -3,9 +3,9 @@ import { safeDestr } from 'destr'
 import { ofetch } from 'ofetch'
 import { EventEmitter } from 'node:events'
 import { consola } from 'consola'
-import { z } from 'zod'
+import { omit } from 'lodash-es'
 import {
-	validators,
+	jsonValueValidator,
 	type GoogleMapsAutocompleteResultSchema,
 	type GoogleMapsAutocompletePredictionsSchema,
 } from './validators'
@@ -15,13 +15,7 @@ import {
 	WebsocketBuilder,
 	WebsocketEvent,
 } from 'websocket-ts'
-const sessionStepStates = new Map<
-	string,
-	{
-		parameters: { [key: string]: unknown }
-		fieldId: string
-	}
->()
+
 const eventEmitter = new EventEmitter()
 
 const waitForEvent = async <EventData>(
@@ -38,41 +32,11 @@ const waitForEvent = async <EventData>(
 	})
 }
 
-type Field<FieldValueType> = {
-	value: FieldValueType
-	disabled: boolean
-	help: string
-	placeholder: string
-	label: string
-	type: 'email' | 'number'
-	action: 'render' | 'warn' | 'complete' | 'resolve'
-	fieldId: string
-	fieldValue: FieldValueType
-	sessionId: string
-}
-
 type JsonValue = string | number | boolean | null | JsonArray | JsonObject
-
 type JsonArray = Array<JsonValue>
-
 type JsonObject = {
 	[key: string]: JsonValue
 }
-
-const jsonValue: z.ZodType<JsonValue> = z.lazy(() =>
-	z.union([
-		z.string(),
-		z.number(),
-		z.boolean(),
-		z.null(),
-		z.array(z.lazy(() => jsonValue)),
-		z.record(
-			z.string(),
-			z.lazy(() => jsonValue),
-		),
-	]),
-)
-
 type SessionInit = {
 	action: 'startSession'
 	sessionId: string
@@ -84,12 +48,22 @@ type Patch = {
 	sessionId: string
 	data: unknown
 }
+type Field = {
+	action: 'render' | 'warn' | 'complete' | 'resolve'
+	fieldId: string
+	sessionId: string
+	fieldValue: unknown
+}
 const safeParse = <T>(maybeJson: string) => {
 	try {
 		return safeDestr<T>(maybeJson)
 	} catch {
 		return false
 	}
+}
+
+const eventId = (sessionId: string, fieldId: string, type: 'patch' | 'resolve') => {
+	return `${sessionId}:${fieldId}:${type}`
 }
 
 export const internalStack = async (
@@ -125,6 +99,7 @@ export const internalStack = async (
 		async (_websocket, rawMessage) => {
 			const message = safeParse<Message>(rawMessage.data.toString())
 			if (!message) return
+			console.log(message)
 			if (message.action === 'startSession') {
 				eventEmitter.emit('startSession', {
 					sessionId: message.sessionId,
@@ -138,7 +113,7 @@ export const internalStack = async (
 			}
 			if (message.action === 'patch') {
 				eventEmitter.emit(
-					`${message.sessionId}:${message.fieldId}:patch`,
+					eventId(message.sessionId, message.fieldId, 'patch'),
 					message.data,
 				)
 			}
@@ -147,25 +122,24 @@ export const internalStack = async (
 				if (!customValidator) {
 					fieldValidators.delete(message.fieldId)
 					eventEmitter.emit(
-						`${message.fieldId}:${message.sessionId}`,
+						eventId(message.sessionId, message.fieldId, 'resolve'),
 						message.fieldValue,
 					)
 				} else {
 					const validationResult = await customValidator(message.fieldValue)
+					ws.send(
+						JSON.stringify({
+							validationResult,
+							action: 'warn',
+							fieldId: message.fieldId,
+							sessionId: message.sessionId,
+						}),
+					)
 					if (validationResult === true) {
 						fieldValidators.delete(message.fieldId)
 						eventEmitter.emit(
-							`${message.fieldId}:${message.sessionId}`,
+							eventId(message.sessionId, message.fieldId, 'resolve'),
 							message.fieldValue,
-						)
-					} else {
-						ws.send(
-							JSON.stringify({
-								validationResult,
-								action: 'warn',
-								fieldId: message.fieldId,
-								sessionId: message.sessionId,
-							}),
 						)
 					}
 				}
@@ -174,7 +148,7 @@ export const internalStack = async (
 	)
 	const fieldValidators = new Map<
 		string,
-		(input: unknown) => Promise<unknown | true>
+		(input: unknown) => Promise<string | true>
 	>()
 	setInterval(() => {
 		ws.send('ping')
@@ -184,7 +158,6 @@ export const internalStack = async (
 			action: 'updatePeers',
 		}),
 	)
-	type FieldType = keyof typeof validators
 	const renderFieldInForm = (
 		sessionId: string,
 		params: {
@@ -204,9 +177,9 @@ export const internalStack = async (
 		return fieldId
 	}
 
-	type Message = Field<string> | SessionInit | Field<number> | Patch
+	type Message = SessionInit | Field | Patch
 
-	const fieldHandler = (sessionId: string) => {
+	const elements = (sessionId: string, isStandalone: boolean) => {
 		return {
 			input: {
 				text: async (
@@ -219,27 +192,27 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<string> => {
-					const type = 'text'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						label,
+						type: 'text',
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultCustomValidator = async (input: unknown) => {
+						if (typeof input !== 'string') return 'Expected string'
+						if (!input) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultCustomValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				number: async (
@@ -255,28 +228,27 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<number> => {
-					const type = 'number'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'number',
+						label,
 						number: true,
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultCustomValidator = async (input: unknown) => {
+						if (typeof input !== 'number') return 'Invalid number'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultCustomValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				currency: async (
@@ -295,29 +267,29 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<string> => {
-					const type = 'currency'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
+					const defaultCustomValidator = async (input: unknown) => {
+						if (typeof input !== 'string') return 'Invalid string'
+						if (!input) return 'Required'
+						return true
+					}
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'currency',
+						label,
 						decimals: undefined,
-						minDecimals: validOptions.decimals,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+						minDecimals: options?.decimals || 2,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultCustomValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				markdown: async (
@@ -328,27 +300,27 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<string> => {
-					const type = 'markdown'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'markdown',
+						label,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (typeof input !== 'string') return 'Expected string'
+						if (!input) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				richText: async (
@@ -359,27 +331,27 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<string> => {
-					const type = 'richText'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'richText',
+						label,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (typeof input !== 'string') return 'Expected string'
+						if (input === '<p></p>') return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				slider: async (
@@ -391,7 +363,7 @@ export const internalStack = async (
 							| {
 									at: number
 									label: string
-							  }[]
+								}[]
 						snapToMarks?: boolean
 						max?: number
 						min?: number
@@ -403,27 +375,26 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<number> => {
-					const type = 'slider'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'slider',
+						label,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (typeof input !== 'number') return 'Invalid number'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				email: async (
@@ -436,27 +407,26 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<string> => {
-					const type = 'email'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'email',
+						label,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (typeof input !== 'string') return 'Expected string'
+						return input.includes('@') || 'Invalid email address'
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				checkbox: async (
@@ -468,27 +438,26 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<boolean> => {
-					const type = 'checkbox'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'checkbox',
+						label,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (typeof input !== 'boolean') return 'Expected boolean'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				checkboxes: async <T = JsonValue>(
@@ -496,24 +465,17 @@ export const internalStack = async (
 					items: Array<{
 						value: JsonValue
 						label: string
-						checkedByDefault?: boolean
 						help?: string
 						disabled?: boolean
 					}>,
 					options?: {
 						disabled?: boolean
 						help?: string
+						defaultValue?: boolean
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<T> => {
-					const type = 'checkboxes'
-					const validItems = validators[type].items.parse(items)
-					const validOptions = validators[type].options.parse(options)
-					const defaultValue: Array<(typeof items)[number]['value']> = []
-					const boxes = validItems.map((box) => {
-						if (box.checkedByDefault) {
-							defaultValue.push(box.value)
-						}
+					const boxes = items.map((box) => {
 						if (box.disabled) {
 							return {
 								label: box.label,
@@ -524,27 +486,27 @@ export const internalStack = async (
 						}
 						return box
 					})
-					const parameters = {
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
 						type: 'checkbox',
-						label: validators[type].label.parse(label),
-						...validOptions,
+						label,
 						options: boxes,
-						defaultValue,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (!Array.isArray(input)) return 'Expected array'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				radio: async <T = JsonValue>(
@@ -562,10 +524,7 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<T> => {
-					const type = 'radio'
-					const validItems = validators[type].items.parse(items)
-					const validOptions = validators[type].options.parse(options)
-					const boxes = validItems.map((radio) => {
+					const boxes = items.map((radio) => {
 						if (radio.disabled) {
 							return {
 								label: radio.label,
@@ -576,26 +535,27 @@ export const internalStack = async (
 						}
 						return radio
 					})
-					const parameters = {
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
 						type: 'radio',
-						label: validators[type].label.parse(label),
-						...validOptions,
+						label,
 						options: boxes,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (!input) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				select: async <T = JsonValue>(
@@ -613,10 +573,7 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<T> => {
-					const type = 'select'
-					const validItems = validators[type].items.parse(items)
-					const validOptions = validators[type].options.parse(options)
-					const selectOptions = validItems.map((select) => {
+					const selectOptions = items.map((select) => {
 						if (select.disabled) {
 							return {
 								label: select.label,
@@ -626,26 +583,27 @@ export const internalStack = async (
 						}
 						return select
 					})
-					const parameters = {
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
 						type: 'select',
-						label: validators[type].label.parse(label),
-						...validOptions,
+						label,
 						options: selectOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (!input) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				autocomplete: async <T = JsonValue>(
@@ -656,7 +614,7 @@ export const internalStack = async (
 							| {
 									label: string
 									value: JsonObject
-							  }
+								}
 						>
 					>,
 					options?: {
@@ -669,16 +627,13 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<T> => {
-					const type = 'autocomplete'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'autocomplete',
+						label,
+					})
 					eventEmitter.on(
-						`${sessionId}:${renderedFieldId}:patch`,
+						eventId(sessionId, renderedFieldId, 'patch'),
 						async (data) => {
 							ws.send(
 								JSON.stringify({
@@ -690,21 +645,16 @@ export const internalStack = async (
 							)
 						},
 					)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
-					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
+					const defaultValidator = async (input: unknown) => {
+						if (input === null) return 'Required'
+						const result = jsonValueValidator.safeParse(input)
+						if (result.success) return true
+						return result.error.issues[0].message
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
 						eventEmitter.removeAllListeners(
-							`${sessionId}:${renderedFieldId}:patch`,
-						)
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
+							eventId(sessionId, renderedFieldId, 'patch'),
 						)
 					})
 				},
@@ -721,15 +671,11 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<T> => {
-					const type = 'address'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, ['customValidator', 'pick']),
 						type: 'autocomplete',
-						label: validators[type].label.parse(label),
-						...validOptions,
-						pick: undefined,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
+						label,
+					})
 					const addressAutocompleteOptions = async (
 						input: string,
 						apiKey: string,
@@ -760,7 +706,7 @@ export const internalStack = async (
 						}))
 					}
 					eventEmitter.on(
-						`${sessionId}:${renderedFieldId}:patch`,
+						eventId(sessionId, renderedFieldId, 'patch'),
 						async (data) => {
 							ws.send(
 								JSON.stringify({
@@ -775,27 +721,20 @@ export const internalStack = async (
 							)
 						},
 					)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
-					})
+					const defaultValidator = async (input: unknown) => {
+						if (!input) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
 					const result = await waitForEvent<GoogleMapsAutocompleteResultSchema>(
-						`${renderedFieldId}:${sessionId}`,
+						eventId(sessionId, renderedFieldId, 'resolve'),
 						() => {
 							eventEmitter.removeAllListeners(
-								`${sessionId}:${renderedFieldId}:patch`,
-							)
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
+								eventId(sessionId, renderedFieldId, 'patch'),
 							)
 						},
 					)
-					return validOptions.pick(result)
+					return options?.pick ? options.pick(result) : result as T
 				},
 				date: async (
 					label: string,
@@ -809,27 +748,27 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<string> => {
-					const type = 'date'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'date',
+						label,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (typeof input !== 'string') return 'Expected string'
+						if (!input) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				datetimeLocal: async (
@@ -844,30 +783,27 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<string> => {
-					const type = 'datetimeLocal'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: 'datetime-local',
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
 					const renderedFieldId = renderFieldInForm(sessionId, {
-						...parameters,
-						type: 'datetimeLocal',
+						...omit(options, 'customValidator'),
+						type: 'datetime-local',
+						label,
 					})
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
-					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (typeof input !== 'string') return 'Expected string'
+						if (!input) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				time: async (
@@ -882,27 +818,27 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<string> => {
-					const type = 'time'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'time',
+						label,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (typeof input !== 'string') return 'Expected string'
+						if (!input) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				colorpicker: async (
@@ -919,27 +855,28 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<string> => {
-					const type = 'colorpicker'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'colorpicker',
+						label,
+						inline: options?.inline || true,
 					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (typeof input !== 'string') return 'Expected string'
+						if (!input) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 				table: async <T = JsonArray>(
@@ -956,6 +893,7 @@ export const internalStack = async (
 					options?: {
 						defaultValue?: Array<JsonValue>
 						resultsPerPage?: number
+						filterable?: boolean
 						columns?: Array<{
 							key: string
 							label: string
@@ -966,42 +904,30 @@ export const internalStack = async (
 						customValidator?: (input: unknown) => Promise<string | true>
 					},
 				): Promise<T> => {
-					const type = 'table'
-					const validOptions = validators[type].options.parse(options)
-					validators[type].query.parse(query)
-					const filterable = true
 					const { resultsToDisplay, totalResults } = await query({
 						page: 1,
 						query: '',
 						offset: 0,
-						pageSize: validOptions.resultsPerPage,
+						pageSize: options?.resultsPerPage || 10,
 					})
-					const parameters = {
-						type,
-						filterable,
-						label: validators[type].label.parse(label),
-						rows: resultsToDisplay,
-						totalResultCount: totalResults,
-						...validOptions,
-						rowsPerPage: validOptions.resultsPerPage,
-						columns:
-							validOptions.columns.length > 0
-								? validOptions.columns
-								: undefined,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
-					if (filterable) {
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						...omit(options, 'customValidator'),
+						type: 'table',
+						filterable: options?.filterable,
+						label,
+					})
+					if (options?.filterable) {
 						eventEmitter.on(
-							`${sessionId}:${renderedFieldId}:patch`,
+							eventId(sessionId, renderedFieldId, 'patch'),
 							async (data) => {
-								const offset = (data.page - 1) * validOptions.resultsPerPage
+								const offset = (data.page - 1) * (options?.resultsPerPage || 10)
 								ws.send(
 									JSON.stringify({
 										patchedState: await query({
 											query: data.query,
 											page: data.page,
 											offset,
-											pageSize: validOptions.resultsPerPage,
+											pageSize: options?.resultsPerPage || 10,
 										}),
 										action: 'patch',
 										fieldId: renderedFieldId,
@@ -1011,19 +937,22 @@ export const internalStack = async (
 							},
 						)
 					}
-					fieldValidators.set(renderedFieldId, validOptions.customValidator)
-					sessionStepStates.set(sessionId, {
-						parameters,
-						fieldId: renderedFieldId,
-					})
-					return await waitForEvent(`${renderedFieldId}:${sessionId}`, () => {
-						ws.send(
-							JSON.stringify({
-								action: 'destroy',
-								fieldId: renderedFieldId,
-								sessionId,
-							}),
-						)
+					const defaultValidator = async (input: unknown) => {
+						if (!Array.isArray(input)) return 'Expected array'
+						if (input.length === 0) return 'Required'
+						return true
+					}
+					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
+						if (isStandalone) {
+							ws.send(
+								JSON.stringify({
+									action: 'destroy',
+									fieldId: renderedFieldId,
+									sessionId,
+								}),
+							)
+						}
 					})
 				},
 			},
@@ -1036,15 +965,14 @@ export const internalStack = async (
 						indicator?: boolean
 					},
 				): Promise<{ increment: () => void; destroy: () => void }> => {
-					const type = 'progress'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						type: 'progress',
 						defaultValue: 0,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
+						label,
+						description: options?.description,
+						max: options?.max || 100,
+						indicator: options?.indicator || false,
+					})
 					let counter = 0
 					const increment = () => {
 						counter += 1
@@ -1075,14 +1003,12 @@ export const internalStack = async (
 						icon?: 'spinner' | 'check'
 					},
 				) => {
-					const type = 'loading'
-					const validOptions = validators[type].options.parse(options)
-					const parameters = {
-						type: type,
-						label: validators[type].label.parse(label),
-						...validOptions,
-					} as const
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						type: 'loading',
+						label,
+						description: options?.description,
+						icon: options?.icon || 'spinner',
+					})
 					const updateMessage = (message: {
 						icon?: 'spinner' | 'check'
 						label?: string
@@ -1111,12 +1037,10 @@ export const internalStack = async (
 				heading: async (
 					text: string,
 				) => {
-					const type = 'heading'
-					const parameters = {
-						type: type,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						type: 'heading',
 						text,
-					}
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
+					})
 					const destroy = () => {
 						ws.send(
 							JSON.stringify({
@@ -1131,12 +1055,10 @@ export const internalStack = async (
 				paragraph: async (
 					text: string,
 				) => {
-					const type = 'paragraph'
-					const parameters = {
-						type: type,
+					const renderedFieldId = renderFieldInForm(sessionId, {
+						type: 'paragraph',
 						text,
-					}
-					const renderedFieldId = renderFieldInForm(sessionId, parameters)
+					})
 					const destroy = () => {
 						ws.send(
 							JSON.stringify({
@@ -1151,7 +1073,39 @@ export const internalStack = async (
 			},
 		}
 	}
-	type IO = ReturnType<typeof fieldHandler>
+	type DisplayElementsObject = ReturnType<typeof elements>['display']
+	type DisplayElements = DisplayElementsObject[keyof DisplayElementsObject]
+	type InputElementsObject = ReturnType<typeof elements>['input']
+	type InputElements = InputElementsObject[keyof InputElementsObject]
+	type GroupElements = InputElements | DisplayElements
+	type PageElementPromises = ReturnType<GroupElements>
+	const sessionHandler = (sessionId: string) => {
+		const standaloneElements = elements(sessionId, true)
+		const pageElements = elements(sessionId, false)
+		return {
+			...standaloneElements,
+			group: async <T>(groupElements: (group: typeof pageElements) => Array<PageElementPromises>) => {
+				const elementPromises = groupElements(pageElements)
+				const groupId = `group_${nanoid()}`
+				setImmediate(async() => {
+					const results = await Promise.all(elementPromises)
+					eventEmitter.emit(
+						`${sessionId}:${groupId}`,
+						results,
+					)
+				})
+				return await waitForEvent(`${sessionId}:${groupId}`, () => {
+					ws.send(
+						JSON.stringify({
+							action: 'groupComplete',
+							sessionId: sessionId,
+						}),
+					)
+				}) as T
+			}
+		}
+	}
+	type IO = ReturnType<typeof sessionHandler>
 	return {
 		statefulSession: (
 			callback: (
@@ -1168,25 +1122,13 @@ export const internalStack = async (
 					sessionId: string
 					user: string
 				}) => {
-					if (sessionStepStates.has(ctx.sessionId)) {
-						const stepState = sessionStepStates.get(ctx.sessionId)
-						if (stepState) {
-							const { parameters, fieldId } = stepState
-							renderFieldInForm(ctx.sessionId, {
-								...parameters,
-								cachedFieldId: fieldId,
-							})
-							return
-						}
-					}
 					ws.send(
 						JSON.stringify({
 							action: 'updatePeers',
 						}),
 					)
-					const io = fieldHandler(ctx.sessionId)
+					const io = sessionHandler(ctx.sessionId)
 					await callback(io, ctx)
-					sessionStepStates.delete(ctx.sessionId)
 					ws.send(
 						JSON.stringify({
 							action: 'complete',
@@ -1200,6 +1142,3 @@ export const internalStack = async (
 	}
 }
 
-export { validators }
-type ValidatorsObject = typeof validators
-export type { ValidatorsObject }
