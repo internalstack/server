@@ -275,11 +275,11 @@ export const internalStack = async (
 					}
 					const renderedFieldId = renderFieldInForm(sessionId, {
 						defaultValue: '0',
+						minDecimals: 2,
+						decimals: 2,
 						...omit(options, 'customValidator'),
 						type: 'currency',
 						label,
-						decimals: undefined,
-						minDecimals: options?.decimals || 2,
 					})
 					fieldValidators.set(renderedFieldId, options?.customValidator || defaultCustomValidator)
 					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
@@ -890,7 +890,7 @@ export const internalStack = async (
 					},
 				): Promise<string> => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
-						defaultValue: '#ffffff',
+						defaultValue: '#FFFFFF',
 						...omit(options, 'customValidator'),
 						type: 'colorpicker',
 						label,
