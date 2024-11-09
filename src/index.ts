@@ -70,6 +70,11 @@ export const internalStack = async (
 	apiKey: string,
 	options?: { verbose?: boolean },
 ) => {
+	const { hostedAppLink } = await ofetch<{ hostedAppLink: string }>('https://internalstack.com/api/v1/key-status', {
+		headers: {
+			authorization: `Bearer ${apiKey}`
+		}
+	})
 	const ws = new WebsocketBuilder(
 		`wss://v1.internalstack.com/websocket?apiKey=${apiKey}`,
 	)
@@ -1144,6 +1149,7 @@ export const internalStack = async (
 	}
 	type IO = ReturnType<typeof sessionHandler>
 	return {
+		hostedAppLink,
 		statefulSession: (
 			callback: (
 				io: IO,
