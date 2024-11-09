@@ -63,7 +63,11 @@ const safeParse = <T>(maybeJson: string) => {
 	}
 }
 
-const eventId = (sessionId: string, fieldId: string, type: 'patch' | 'resolve') => {
+const eventId = (
+	sessionId: string,
+	fieldId: string,
+	type: 'patch' | 'resolve',
+) => {
 	return `${sessionId}:${fieldId}:${type}`
 }
 
@@ -71,11 +75,14 @@ export const internalStack = async (
 	apiKey: string,
 	options?: { verbose?: boolean },
 ) => {
-	const { hostedAppLink } = await ofetch<{ hostedAppLink: string }>('https://internalstack.com/api/v1/key-status', {
-		headers: {
-			authorization: `Bearer ${apiKey}`
-		}
-	})
+	const { hostedAppLink } = await ofetch<{ hostedAppLink: string }>(
+		'https://internalstack.com/api/v1/key-status',
+		{
+			headers: {
+				authorization: `Bearer ${apiKey}`,
+			},
+		},
+	)
 	const ws = new WebsocketBuilder(
 		`wss://v1.internalstack.com/websocket?apiKey=${apiKey}`,
 	)
@@ -84,10 +91,10 @@ export const internalStack = async (
 		.build()
 	if (options?.verbose !== false) {
 		ws.addEventListener(WebsocketEvent.reconnect, () =>
-			consola.info('Reconnected')
+			consola.info('Reconnected'),
 		)
 		ws.addEventListener(WebsocketEvent.retry, () =>
-			consola.info('Reconnecting...')
+			consola.info('Reconnecting...'),
 		)
 		ws.addEventListener(WebsocketEvent.error, (_websocket, e) => {
 			consola.fatal(e)
@@ -99,7 +106,7 @@ export const internalStack = async (
 			consola.box(`Visit your app at\n${colorize('cyan', hostedAppLink)}`)
 		})
 		ws.addEventListener(WebsocketEvent.close, () =>
-			consola.fail('Disconnected')
+			consola.fail('Disconnected'),
 		)
 	}
 	ws.addEventListener(
@@ -210,18 +217,24 @@ export const internalStack = async (
 						if (!input) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultCustomValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultCustomValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				number: async (
 					label: string,
@@ -247,18 +260,24 @@ export const internalStack = async (
 						if (typeof input !== 'number') return 'Invalid number'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultCustomValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultCustomValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				currency: async (
 					label: string,
@@ -289,18 +308,24 @@ export const internalStack = async (
 						type: 'currency',
 						label,
 					})
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultCustomValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultCustomValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				markdown: async (
 					label: string,
@@ -321,18 +346,24 @@ export const internalStack = async (
 						if (!input) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				richText: async (
 					label: string,
@@ -353,18 +384,24 @@ export const internalStack = async (
 						if (input === '<p></p>') return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				slider: async (
 					label: string,
@@ -375,7 +412,7 @@ export const internalStack = async (
 							| {
 									at: number
 									label: string
-								}[]
+							  }[]
 						snapToMarks?: boolean
 						max?: number
 						min?: number
@@ -397,18 +434,24 @@ export const internalStack = async (
 						if (typeof input !== 'number') return 'Invalid number'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				email: async (
 					label: string,
@@ -430,18 +473,24 @@ export const internalStack = async (
 						if (typeof input !== 'string') return 'Expected string'
 						return input.includes('@') || 'Invalid email address'
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				checkbox: async (
 					label: string,
@@ -462,18 +511,24 @@ export const internalStack = async (
 						if (typeof input !== 'boolean') return 'Expected boolean'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				checkboxes: async <T = JsonValue>(
 					label: string,
@@ -512,18 +567,24 @@ export const internalStack = async (
 						if (!Array.isArray(input)) return 'Expected array'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				radio: async <T = JsonValue>(
 					label: string,
@@ -562,18 +623,24 @@ export const internalStack = async (
 						if (!input) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				select: async <T = JsonValue>(
 					label: string,
@@ -611,18 +678,24 @@ export const internalStack = async (
 						if (!input) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				autocomplete: async <T = JsonValue>(
 					label: string,
@@ -632,7 +705,7 @@ export const internalStack = async (
 							| {
 									label: string
 									value: JsonObject
-								}
+							  }
 						>
 					>,
 					options?: {
@@ -670,21 +743,27 @@ export const internalStack = async (
 						if (result.success) return true
 						return result.error.issues[0].message
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						eventEmitter.removeAllListeners(
-							eventId(sessionId, renderedFieldId, 'patch'),
-						)
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							eventEmitter.removeAllListeners(
+								eventId(sessionId, renderedFieldId, 'patch'),
 							)
-						}
-					})
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				address: async <T = GoogleMapsAutocompleteResultSchema>(
 					label: string,
@@ -754,7 +833,10 @@ export const internalStack = async (
 						if (!input) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
 					const result = await waitForEvent<GoogleMapsAutocompleteResultSchema>(
 						eventId(sessionId, renderedFieldId, 'resolve'),
 						() => {
@@ -772,7 +854,7 @@ export const internalStack = async (
 							}
 						},
 					)
-					return options?.pick ? options.pick(result) : result as T
+					return options?.pick ? options.pick(result) : (result as T)
 				},
 				date: async (
 					label: string,
@@ -797,18 +879,24 @@ export const internalStack = async (
 						if (!input) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				datetimeLocal: async (
 					label: string,
@@ -833,18 +921,24 @@ export const internalStack = async (
 						if (!input) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				time: async (
 					label: string,
@@ -869,18 +963,24 @@ export const internalStack = async (
 						if (!input) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				colorpicker: async (
 					label: string,
@@ -908,18 +1008,24 @@ export const internalStack = async (
 						if (!input) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 				table: async <T = JsonArray>(
 					label: string,
@@ -954,7 +1060,12 @@ export const internalStack = async (
 					})
 					const renderedFieldId = renderFieldInForm(sessionId, {
 						defaultValue: [],
-						...omit(options, ['customValidator', 'resultsToDisplay', 'totalResults', 'resultsPerPage']),
+						...omit(options, [
+							'customValidator',
+							'resultsToDisplay',
+							'totalResults',
+							'resultsPerPage',
+						]),
 						type: 'table',
 						filterable: options?.filterable || true,
 						label,
@@ -986,18 +1097,24 @@ export const internalStack = async (
 						if (input.length === 0) return 'Required'
 						return true
 					}
-					fieldValidators.set(renderedFieldId, options?.customValidator || defaultValidator)
-					return await waitForEvent(eventId(sessionId, renderedFieldId, 'resolve'), () => {
-						if (isStandalone) {
-							ws.send(
-								JSON.stringify({
-									action: 'destroy',
-									fieldId: renderedFieldId,
-									sessionId,
-								}),
-							)
-						}
-					})
+					fieldValidators.set(
+						renderedFieldId,
+						options?.customValidator || defaultValidator,
+					)
+					return await waitForEvent(
+						eventId(sessionId, renderedFieldId, 'resolve'),
+						() => {
+							if (isStandalone) {
+								ws.send(
+									JSON.stringify({
+										action: 'destroy',
+										fieldId: renderedFieldId,
+										sessionId,
+									}),
+								)
+							}
+						},
+					)
 				},
 			},
 			display: {
@@ -1078,9 +1195,7 @@ export const internalStack = async (
 					}
 					return { updateMessage, destroy }
 				},
-				heading: async (
-					text: string,
-				) => {
+				heading: async (text: string) => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
 						type: 'heading',
 						text,
@@ -1096,9 +1211,7 @@ export const internalStack = async (
 					}
 					return { destroy }
 				},
-				paragraph: async (
-					text: string,
-				) => {
+				paragraph: async (text: string) => {
 					const renderedFieldId = renderFieldInForm(sessionId, {
 						type: 'paragraph',
 						text,
@@ -1128,25 +1241,26 @@ export const internalStack = async (
 		const pageElements = elements(sessionId, false)
 		return {
 			...standaloneElements,
-			group: async <T>(groupElements: (group: typeof pageElements) => Array<PageElementPromises>) => {
+			group: async <T>(
+				groupElements: (
+					group: typeof pageElements,
+				) => Array<PageElementPromises>,
+			) => {
 				const elementPromises = groupElements(pageElements)
 				const groupId = `group_${nanoid()}`
-				setImmediate(async() => {
+				setImmediate(async () => {
 					const results = await Promise.all(elementPromises)
-					eventEmitter.emit(
-						`${sessionId}:${groupId}`,
-						results,
-					)
+					eventEmitter.emit(`${sessionId}:${groupId}`, results)
 				})
-				return await waitForEvent(`${sessionId}:${groupId}`, () => {
+				return (await waitForEvent(`${sessionId}:${groupId}`, () => {
 					ws.send(
 						JSON.stringify({
 							action: 'groupComplete',
 							sessionId: sessionId,
 						}),
 					)
-				}) as T
-			}
+				})) as T
+			},
 		}
 	}
 	type IO = ReturnType<typeof sessionHandler>
@@ -1186,4 +1300,3 @@ export const internalStack = async (
 		},
 	}
 }
-
