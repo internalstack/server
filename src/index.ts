@@ -3,6 +3,7 @@ import { safeDestr } from 'destr'
 import { ofetch } from 'ofetch'
 import { EventEmitter } from 'node:events'
 import { consola } from 'consola'
+import { colorize } from 'consola/utils'
 import { omit } from 'lodash-es'
 import {
 	jsonValueValidator,
@@ -83,20 +84,22 @@ export const internalStack = async (
 		.build()
 	if (options?.verbose !== false) {
 		ws.addEventListener(WebsocketEvent.reconnect, () =>
-			consola.info('Reconnected'),
+			consola.info('Reconnected')
 		)
 		ws.addEventListener(WebsocketEvent.retry, () =>
-			consola.info('Reconnecting...'),
+			consola.info('Reconnecting...')
 		)
 		ws.addEventListener(WebsocketEvent.error, (_websocket, e) => {
 			consola.fatal(e)
 			throw 'Fatal error' // Automatically reload server via process manager like PM2
 		})
-		ws.addEventListener(WebsocketEvent.open, () =>
-			consola.success('Connected to InternalStack Cloud'),
-		)
+		ws.addEventListener(WebsocketEvent.open, () => {
+			consola.success('Connected to InternalStack Cloud')
+			consola.success('Server started and awaiting sessions...')
+			consola.box(`Visit your app at\n${colorize('cyan', hostedAppLink)}`)
+		})
 		ws.addEventListener(WebsocketEvent.close, () =>
-			consola.fail('Disconnected'),
+			consola.fail('Disconnected')
 		)
 	}
 	ws.addEventListener(
@@ -758,7 +761,6 @@ export const internalStack = async (
 							eventEmitter.removeAllListeners(
 								eventId(sessionId, renderedFieldId, 'patch'),
 							)
-							console.log(isStandalone)
 							if (isStandalone) {
 								ws.send(
 									JSON.stringify({
